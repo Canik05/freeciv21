@@ -580,6 +580,14 @@ void tileset_changed(void)
   science_report *sci_rep;
   QWidget *w;
 
+  // Refresh the tileset debugger if it exists
+  if (auto debugger = queen()->mapview_wdg->debugger();
+      debugger != nullptr) {
+    // When not zoomed in, unscaled_tileset is null
+    // When zoomed in, unscaled_tileset is not null and holds the log
+    debugger->refresh(unscaled_tileset ? unscaled_tileset : tileset);
+  }
+
   update_unit_info_label(get_units_in_focus());
   destroy_city_dialog();
   // Update science report if open
@@ -591,6 +599,28 @@ void tileset_changed(void)
     sci_rep->reset_tree();
     sci_rep->update_report();
     sci_rep->repaint();
+  }
+
+  // When the tileset has an error, tell the user and give him a link to the
+  // debugger where the messages can be found.
+  if (tileset_has_error(tileset) && king() != nullptr) {
+    QMessageBox *ask = new QMessageBox(king()->central_wdg);
+    ask->setWindowTitle(_("Error loading tileset"));
+    ask->setAttribute(Qt::WA_DeleteOnClose);
+    ask->setText(
+        // TRANS: %1 is the name of the tileset
+        QString(_("There was an error loading tileset \"%1\". You can still "
+                  "use it, but it might be incomplete."))
+            .arg(tileset_name_get(tileset)));
+    ask->setIcon(QMessageBox::Warning);
+    ask->setStandardButtons(QMessageBox::Close);
+
+    auto button =
+        ask->addButton(_("Open tileset &debugger"), QMessageBox::AcceptRole);
+    QObject::connect(button, &QPushButton::clicked, queen()->mapview_wdg,
+                     &map_view::show_debugger);
+
+    ask->show();
   }
 }
 

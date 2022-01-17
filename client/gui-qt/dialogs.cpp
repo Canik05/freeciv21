@@ -3311,7 +3311,8 @@ void popup_tileset_suggestion_dialog(void)
     forced_tileset_name = game.control.preferred_tileset;
     if (!tilespec_reread(game.control.preferred_tileset, true,
                          king()->map_scale)) {
-      tileset_error(LOG_ERROR, _("Can't load requested tileset %s."),
+      tileset_error(nullptr, LOG_ERROR,
+                    _("Can't load requested tileset %s."),
                     game.control.preferred_tileset);
     }
   });
@@ -3641,28 +3642,6 @@ void action_selection_close(void)
    Player has gained a new tech.
  */
 void show_tech_gained_dialog(Tech_type_id tech) { Q_UNUSED(tech) }
-
-/**
-   Show tileset error dialog.
- */
-void show_tileset_error(QString msg)
-{
-  QString buf;
-
-  buf = QString(_("Tileset problem, it's probably incompatible with the"
-                  " ruleset:\n%1"))
-            .arg(msg);
-
-  if (king() != nullptr) {
-    QMessageBox *ask = new QMessageBox(king()->central_wdg);
-
-    ask->setText(buf);
-    ask->setStandardButtons(QMessageBox::Ok);
-    ask->setWindowTitle(_("Tileset error"));
-    ask->setAttribute(Qt::WA_DeleteOnClose);
-    ask->show();
-  }
-}
 
 /**
    Popup dialog for upgrade units

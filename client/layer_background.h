@@ -17,11 +17,15 @@
 
 #include <QPixmap>
 
+#include <array>
+#include <memory>
+
 namespace freeciv {
 
 class layer_background : public layer {
 public:
   explicit layer_background(struct tileset *ts);
+  virtual ~layer_background() = default;
 
   std::vector<drawn_sprite>
   fill_sprite_array(const tile *ptile, const tile_edge *pedge,

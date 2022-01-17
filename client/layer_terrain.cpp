@@ -118,12 +118,15 @@ layer_terrain::layer_terrain(struct tileset *ts, int number)
 bool layer_terrain::create_matching_group(const QString &name)
 {
   if (name.isEmpty()) {
+    tileset_error(tileset(), LOG_ERROR,
+                  _("[layer%d] match_types: names cannot be empty."),
+                  m_number);
     return false;
   }
 
   if (m_matching_groups.count(name.at(0)) != 0) {
     tileset_error(
-        LOG_FATAL,
+        tileset(), LOG_ERROR,
         _("[layer%d] match_types: \"%s\" initial ('%c') is not unique."),
         m_number, qUtf8Printable(name), qUtf8Printable(name.at(0)));
     return false;
@@ -147,8 +150,9 @@ bool layer_terrain::add_tag(const QString &tag, const QString &sprite_name)
 {
   bool ok = true;
   if (m_terrain_tag_info.count(tag) > 0) {
-    qWarning("Multiple tile sections containing terrain tag \"%s\".",
-             qUtf8Printable(tag));
+    tileset_error(tileset(), LOG_ERROR,
+                  "Multiple [tile] sections containing terrain tag \"%s\".",
+                  qUtf8Printable(tag));
     ok = false;
   }
 
@@ -222,7 +226,9 @@ bool layer_terrain::set_tag_matches_with(const QString &tag,
 void layer_terrain::enable_blending(const QString &tag)
 {
   if (!tileset_is_isometric(tileset())) {
-    qCritical() << "Blending is only supported for isometric tilesets";
+    tileset_error(tileset(), LOG_ERROR,
+                  _("Blending is only supported for isometric tilesets"));
+    return;
   }
   // Create the entry
   m_terrain_tag_info.at(tag).blend = true;
@@ -241,7 +247,7 @@ void layer_terrain::initialize_terrain(const terrain *terrain)
     info = m_terrain_tag_info[terrain->graphic_alt];
   } else if (m_number == 0) {
     // All terrains should be present in layer 0...
-    tileset_error(LOG_WARN,
+    tileset_error(tileset(), LOG_WARN,
                   _("Terrain \"%s\": no graphic tile \"%s\" or \"%s\"."),
                   terrain_rule_name(terrain), terrain->graphic_str,
                   terrain->graphic_alt);
@@ -282,7 +288,9 @@ void layer_terrain::initialize_terrain(const terrain *terrain)
       break;
     case MATCH_PAIR:
     case MATCH_FULL:
-      qWarning() << "Not implemented CELL_WHOLE + MATCH_FULL/MATCH_PAIR.";
+      tileset_error(
+          tileset(), LOG_ERROR,
+          _("Not implemented CELL_WHOLE + MATCH_FULL/MATCH_PAIR."));
       return;
     }
     break;
@@ -335,7 +343,8 @@ void layer_terrain::initialize_cell_whole_match_none(const terrain *terrain,
   // check for base sprite, allowing missing sprites above base
   if (m_number == 0 && info.sprites.empty()) {
     // TRANS: 'base' means 'base of terrain gfx', not 'military base'
-    tileset_error(LOG_FATAL, _("Missing base sprite for tag \"%s\"."),
+    tileset_error(tileset(), LOG_ERROR,
+                  _("Missing base sprite for tag \"%s\"."),
                   qUtf8Printable(buffer));
   }
 }
@@ -353,7 +362,7 @@ void layer_terrain::initialize_cell_whole_match_same(const terrain *terrain,
                       .arg(info.sprite_name)
                       .arg(cardinal_index_str(tileset(), i));
     info.sprites.push_back(tiles_lookup_sprite_tag_alt(
-        tileset(), LOG_FATAL, qUtf8Printable(buffer), "", "matched terrain",
+        tileset(), LOG_ERROR, qUtf8Printable(buffer), "", "matched terrain",
         terrain_rule_name(terrain), true));
   }
 }
@@ -375,7 +384,7 @@ void layer_terrain::initialize_cell_corner_match_none(const terrain *terrain,
                       .arg(info.sprite_name)
                       .arg(direction4letters[dir]);
     info.sprites.push_back(tiles_lookup_sprite_tag_alt(
-        tileset(), LOG_FATAL, qUtf8Printable(buffer), "", "cell terrain",
+        tileset(), LOG_ERROR, qUtf8Printable(buffer), "", "cell terrain",
         terrain_rule_name(terrain), true));
   }
 }
@@ -402,7 +411,7 @@ void layer_terrain::initialize_cell_corner_match_same(const terrain *terrain,
                       .arg((value >> 1) & 1)
                       .arg((value >> 2) & 1);
     info.sprites.push_back(tiles_lookup_sprite_tag_alt(
-        tileset(), LOG_FATAL, qUtf8Printable(buffer), "",
+        tileset(), LOG_ERROR, qUtf8Printable(buffer), "",
         "same cell terrain", terrain_rule_name(terrain), true));
   }
 }
@@ -430,7 +439,7 @@ void layer_terrain::initialize_cell_corner_match_pair(const terrain *terrain,
                            letters[(value >> 2) & 1]);
 
     info.sprites.push_back(tiles_lookup_sprite_tag_alt(
-        tileset(), LOG_FATAL, qUtf8Printable(buffer), "",
+        tileset(), LOG_ERROR, qUtf8Printable(buffer), "",
         "cell pair terrain", terrain_rule_name(terrain), true));
   }
 }
@@ -508,10 +517,11 @@ void layer_terrain::initialize_cell_corner_match_full(const terrain *terrain,
                            1.0f, false);
       // We allocated new sprite with crop_sprite. Store its address so we
       // can free it.
-      m_allocated.push_back(sprite);
+      m_allocated.emplace_back(sprite);
     } else {
-      qCritical("Terrain graphics sprite for tag \"%s\" missing.",
-                qUtf8Printable(buffer));
+      tileset_error(tileset(), LOG_ERROR,
+                    "Terrain graphics sprite for tag \"%s\" missing.",
+                    qUtf8Printable(buffer));
     }
 
     info.sprites.push_back(sprite);
@@ -550,7 +560,8 @@ void layer_terrain::initialize_blending(const terrain *terrain,
   }
 
   if (blender == nullptr) {
-    qCritical(
+    tileset_error(
+        tileset(), LOG_ERROR,
         "Cannot find sprite for blending terrain with tag %s on layer %d",
         qUtf8Printable(info.sprite_name), m_number);
     return;
@@ -625,7 +636,8 @@ std::vector<drawn_sprite> layer_terrain::fill_sprite_array(
 layer_terrain::matching_group *layer_terrain::group(const QString &name)
 {
   if (name.isEmpty() || m_matching_groups.count(name[0]) == 0) {
-    qCritical() << "No matching group called" << name;
+    tileset_error(tileset(), LOG_ERROR, _("No matching group called %s"),
+                  qUtf8Printable(name));
     return nullptr;
   }
 
@@ -677,8 +689,10 @@ void layer_terrain::fill_terrain_sprite_array(
          * modulo to limit the number to a handleable size [0..32000). */
         const int i =
             fc_randomly(tile_index(ptile) % 32000, info.sprites.size());
-        sprs.emplace_back(tileset(), info.sprites[i], true, info.offset_x,
-                          info.offset_y);
+        if (Q_LIKELY(info.sprites[i] != nullptr)) {
+          sprs.emplace_back(tileset(), info.sprites[i], true, info.offset_x,
+                            info.offset_y);
+        }
       }
       break;
     }
@@ -695,8 +709,10 @@ void layer_terrain::fill_terrain_sprite_array(
           tileno |= 1 << i;
         }
       }
-      sprs.emplace_back(tileset(), info.sprites[tileno], true, info.offset_x,
-                        info.offset_y);
+      if (Q_LIKELY(info.sprites[tileno] != nullptr)) {
+        sprs.emplace_back(tileset(), info.sprites[tileno], true,
+                          info.offset_x, info.offset_y);
+      }
       break;
     }
     case MATCH_PAIR:
@@ -835,8 +851,10 @@ void layer_terrain::fill_blending_sprite_array(
     }
 
     // Pick the blending sprite and add it
-    sprs.emplace_back(tileset(), other_info.blend_sprites.at(dir), true,
-                      offsets[dir][0], offsets[dir][1]);
+    if (Q_LIKELY(other_info.blend_sprites.at(dir) != nullptr)) {
+      sprs.emplace_back(tileset(), other_info.blend_sprites.at(dir), true,
+                        offsets[dir][0], offsets[dir][1]);
+    }
   }
 }
 
